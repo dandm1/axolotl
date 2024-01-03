@@ -12,7 +12,6 @@ import os
 from starlette.middleware.cors import CORSMiddleware
 from starlette.types import Scope
 
-import fire
 import transformers
 
 from axolotl.cli import (
@@ -47,7 +46,7 @@ def do_train(request: Request):
     return Response("Training started")
 
 
-def do_api(config: Path = Path("examples/"), **kwargs):
+def api(config: Path = Path("examples/"), **kwargs):
     print_axolotl_text_art()
     check_accelerate_default_config()
     check_user_token()
@@ -61,6 +60,3 @@ def do_api(config: Path = Path("examples/"), **kwargs):
         allow_headers=["*"],
     )
     app.include_router(router)
-
-if __name__ == "__main__":
-    fire.Fire(do_api)
