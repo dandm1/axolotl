@@ -2,6 +2,7 @@
 CLI to run an API to serve other functional
 """
 import logging
+import traceback
 from pathlib import Path
 from fastapi import APIRouter, FastAPI, Request
 from starlette.middleware import Middleware
@@ -24,25 +25,31 @@ from axolotl.cli import (
 )
 from axolotl.common.cli import TrainerCliArgs
 from axolotl.train import train
+from axolotl.utils.dict import DictDefault
 
 LOG = logging.getLogger("axolotl.cli.train")
 
-    
 router = APIRouter()
 
 @router.post("/api/v1/train")
-def do_train(request: Request):
-    parsed_cfg = prepare_cfg(request.json())
-    parsed_cfg["api_host"] = request.client.host
-    parsed_cfg["api_port"] = request.client.port
-    parsed_cfg["do_websockets"] = True
+async def do_train(request: Request):
+    try:
+        response = DictDefault(await request.json())
+        print(response)
+        parsed_cfg = prepare_cfg(request.json())
+        parsed_cfg["api_host"] = request.client.host
+        parsed_cfg["api_port"] = request.client.port
+        parsed_cfg["do_websockets"] = True
 
-    parser = transformers.HfArgumentParser((TrainerCliArgs))
-    parsed_cli_args, _ = parser.parse_args_into_dataclasses(
-        return_remaining_strings=True
-    )
-    dataset_meta = load_datasets(cfg=parsed_cfg, cli_args=parsed_cli_args)
-    train(cfg=parsed_cfg, cli_args=parsed_cli_args, dataset_meta=dataset_meta)
+        parser = transformers.HfArgumentParser((TrainerCliArgs))
+        parsed_cli_args, _ = parser.parse_args_into_dataclasses(
+            return_remaining_strings=True
+        )
+        dataset_meta = load_datasets(cfg=parsed_cfg, cli_args=parsed_cli_args)
+        train(cfg=parsed_cfg, cli_args=parsed_cli_args, dataset_meta=dataset_meta)
+    except Exception as e:
+        print(e)
+        print(traceback.format_exc())
     return Response("Training started")
 
 @router.get("/api/v1/health")
