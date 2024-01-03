@@ -1,8 +1,11 @@
 """
 CLI to run an API to serve other functional
 """
+import asyncio
 import logging
 import traceback
+from typing import Callable
+import janus
 from pathlib import Path
 from fastapi import APIRouter, FastAPI, Request, WebSocket
 from starlette.middleware import Middleware
@@ -44,28 +47,45 @@ app.add_middleware(
 )
 app.include_router(router)
 
-@router.websocket("/ws/v1/train")
+@app.websocket("/ws")
 async def do_train(websocket: WebSocket):
     await websocket.accept()
+    queue = janus.Queue()
+    send_json = queue.sync_q.put
+
+    data = await websocket.receive_json()
+    fut = asyncio.get_event_loop().run_in_executor(
+        None, sync_processing_loop, send_json, data
+    )
+    print(fut)
 
     while True:
-        data = await websocket.receive_json()
-        try:
-            request = DictDefault(data)
-            print(request)
-            parsed_cfg = prepare_cfg(request)
-            parsed_cfg["websocket"] = websocket
-            parsed_cfg["do_websockets"] = True
+        val = await queue.async_q.get()
+        if val is None:
+            break
+        await websocket.send_json(val)
 
-            parser = transformers.HfArgumentParser((TrainerCliArgs))
-            parsed_cli_args, _ = parser.parse_args_into_dataclasses(
-                return_remaining_strings=True
-            )
-            dataset_meta = load_datasets(cfg=parsed_cfg, cli_args=parsed_cli_args)
-            train(cfg=parsed_cfg, cli_args=parsed_cli_args, dataset_meta=dataset_meta)
-        except Exception as e:
-            print(e)
-            print(traceback.format_exc())
+    await fut
+
+def sync_processing_loop(send_json: Callable[[dict], None], data: str):
+    try:
+        request = DictDefault(data)
+        print(request)
+        parsed_cfg = prepare_cfg(request)
+        parsed_cfg["websocket"] = send_json
+        parsed_cfg["do_websockets"] = True
+
+        parser = transformers.HfArgumentParser((TrainerCliArgs))
+        parsed_cli_args, _ = parser.parse_args_into_dataclasses(
+            return_remaining_strings=True
+        )
+        dataset_meta = load_datasets(cfg=parsed_cfg, cli_args=parsed_cli_args)
+        train(cfg=parsed_cfg, cli_args=parsed_cli_args, dataset_meta=dataset_meta)
+    except Exception as e:
+        print(e)
+        print(traceback.format_exc())
+    finally:
+        send_json(None)
 
 @router.get("/api/v1/health")
 def health():

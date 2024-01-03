@@ -28,7 +28,7 @@ from transformers import (
     TrainingArguments,
 )
 from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR, IntervalStrategy
-
+from axolotl.utils.dict import DictDefault
 from axolotl.utils.bench import log_gpu_memory_usage
 from axolotl.utils.distributed import (
     barrier,
@@ -136,8 +136,10 @@ class WebsocketCallback(
     def __init__(self, cfg):
         self.cfg = cfg
         self.logged = False
-        self.control_actions = {}
-        self.websocket = websocket.WebSocketApp("ws://{cfg.api_host}:{cfg.api_port}/ws/updates", on_message = self.on_receive)
+        self.control_actions = DictDefault()
+        self.websocket = cfg.websocket
+        print("Creating websocket callback.")
+        print(self.websocket)
 
     def on_receive(self, message):
         decoded = json.loads(message)
@@ -148,21 +150,25 @@ class WebsocketCallback(
         if decoded["log"]:
             self.control_actions["log"] = True
 
-    async def on_step_end(
+    def on_step_end(
         self,
         args: TrainingArguments,
         state: TrainerState,
         control: TrainerControl,
         **kwargs,
     ):
-        status = { "step": state.global_step, "epoch": state.epoch, "training_loss": state.log_history[-1]["loss"], "last_log": state.log_history[-1] }
-        await self.websocket.send(status.json())
+        status = { "step": state.global_step, "epoch": state.epoch }
+        if state.log_history:
+            status["last_log"] = state.log_history[-1]
+        #status["ags"] = json.dumps(args)
+        #status["state"] = state
+        self.websocket(status)
         if (self.control_actions["stop"]):
             control.should_training_stop = True
         if (self.control_actions["save"]):
             control.should_save = True
         if (self.control_actions["log"]):
-            control.should_log = True
+            pass;
 
         self.control_actions.clear()
         return control
