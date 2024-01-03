@@ -19,7 +19,6 @@ from axolotl.train import train
 
 LOG = logging.getLogger("axolotl.cli.train")
 
-
 def do_cli(config: Path = Path("examples/"), **kwargs):
     # pylint: disable=duplicate-code
     parsed_cfg = load_cfg(config, **kwargs)

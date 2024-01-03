@@ -137,7 +137,7 @@ class WebsocketCallback(
         self.cfg = cfg
         self.logged = False
         self.control_actions = {}
-        self.websocket = websocket.WebSocketApp("ws://{cfg.api_host}:{cfg.api_port}/wsCallback", on_message = self.on_receive)
+        self.websocket = websocket.WebSocketApp("ws://{cfg.api_host}:{cfg.api_port}/ws/updates", on_message = self.on_receive)
 
     def on_receive(self, message):
         decoded = json.loads(message)

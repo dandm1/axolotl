@@ -45,6 +45,9 @@ def do_train(request: Request):
     train(cfg=parsed_cfg, cli_args=parsed_cli_args, dataset_meta=dataset_meta)
     return Response("Training started")
 
+@router.get("/api/v1/health")
+def health():
+    return Response("OK")
 
 def api(config: Path = Path("examples/"), **kwargs):
     print_axolotl_text_art()
