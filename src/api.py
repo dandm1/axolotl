@@ -49,17 +49,16 @@ def do_train(request: Request):
 def health():
     return Response("OK")
 
-def api(config: Path = Path("examples/"), **kwargs):
-    print_axolotl_text_art()
-    check_accelerate_default_config()
-    check_user_token()
-    app = FastAPI(title="Axolotl API", openapi_url="/api/v1/openapi.json")
-    # Set all CORS enabled origins
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"], #str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-    app.include_router(router)
+print_axolotl_text_art()
+check_accelerate_default_config()
+check_user_token()
+app = FastAPI(title="Axolotl API", openapi_url="/api/v1/openapi.json")
+# Set all CORS enabled origins
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], #str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.include_router(router)
