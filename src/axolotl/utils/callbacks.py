@@ -1,6 +1,7 @@
 """Callbacks for Trainer class"""
 
 from __future__ import annotations
+import json
 
 import logging
 import os
@@ -16,6 +17,7 @@ import torch.distributed as dist
 import wandb
 from datasets import load_dataset
 from optimum.bettertransformer import BetterTransformer
+import websocket
 from tqdm import tqdm
 from transformers import (
     GenerationConfig,
@@ -125,6 +127,45 @@ class GPUStatsCallback(
             self.logged = True
         return control
 
+
+class WebsocketCallback(
+    TrainerCallback
+):  # pylint: disable=too-few-public-methods disable=unused-argument
+    """Callback to track GPU utilization"""
+
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.logged = False
+        self.control_actions = {}
+        self.websocket = websocket.WebSocketApp("ws://{cfg.api_host}:{cfg.api_port}/wsCallback", on_message = self.on_receive)
+
+    def on_receive(self, message):
+        decoded = json.loads(message)
+        if decoded["stop_training"]:
+            self.control_actions["stop"] = True
+        if decoded["save_checkpoint"]:
+            self.control_actions["save"] = True
+        if decoded["log"]:
+            self.control_actions["log"] = True
+
+    async def on_step_end(
+        self,
+        args: TrainingArguments,
+        state: TrainerState,
+        control: TrainerControl,
+        **kwargs,
+    ):
+        status = { "step": state.global_step, "epoch": state.epoch, "training_loss": state.log_history[-1]["loss"], "last_log": state.log_history[-1] }
+        await self.websocket.send(status.json())
+        if (self.control_actions["stop"]):
+            control.should_training_stop = True
+        if (self.control_actions["save"]):
+            control.should_save = True
+        if (self.control_actions["log"]):
+            control.should_log = True
+
+        self.control_actions.clear()
+        return control
 
 class LossWatchDogCallback(TrainerCallback):
     """Callback to track loss and stop training if loss is too high"""

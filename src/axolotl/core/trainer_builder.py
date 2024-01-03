@@ -28,6 +28,7 @@ from axolotl.utils.callbacks import (
     LossWatchDogCallback,
     SaveAxolotlConfigtoWandBCallback,
     SaveBetterTransformerModelCallback,
+    WebsocketCallback,
     bench_eval_callback_factory,
     log_prediction_callback_factory,
 )
@@ -482,6 +483,9 @@ class HFCausalTrainerBuilder(TrainerBuilderBase):
         callbacks = []
         callbacks.append(GPUStatsCallback(self.cfg))
         callbacks.append(EvalFirstStepCallback)
+
+        if self.cfg.do_websockets:
+            callbacks.append(WebsocketCallback(self.cfg))
 
         if self.cfg.relora_steps:
             callbacks.append(ReLoRACallback(self.cfg))
